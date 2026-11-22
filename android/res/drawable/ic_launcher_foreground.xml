@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- 两个对话气泡：两个人，且只有两个人 -->
+    <path android:fillColor="#5B9CFF"
+        android:pathData="M30,34 h30 a10,10 0 0 1 10,10 v14 a10,10 0 0 1 -10,10 h-16 l-10,8 v-8 h-4 a10,10 0 0 1 -10,-10 v-14 a10,10 0 0 1 10,-10 z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M60,50 h18 a8,8 0 0 1 8,8 v10 a8,8 0 0 1 -8,8 h-2 v6 l-8,-6 h-8 a8,8 0 0 1 -8,-8 v-10 a8,8 0 0 1 8,-8 z" />
+</vector>

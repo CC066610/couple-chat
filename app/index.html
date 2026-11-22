@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>两个人的聊天</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">两个人的聊天</div>
+      <nav class="tabs">
+        <button id="tab-pair" class="tab">配对</button>
+        <button id="tab-chat" class="tab active">聊天</button>
+        <button id="tab-about" class="tab">说明</button>
+      </nav>
+      <div id="bound-badge" class="badge">未绑定</div>
+    </header>
+
+    <main>
+      <div id="status" class="status">初始化…</div>
+
+      <section id="panel-pair" class="panel hidden">
+        <div class="card">
+          <h2>你的设备</h2>
+          <p class="muted">这台设备的身份指纹（让对方核对，防中间人）：</p>
+          <code id="fingerprint" class="fp">-</code>
+        </div>
+
+        <div class="card">
+          <h2>建立关系</h2>
+          <p class="muted">只有两个人能绑定；绑定期间拒绝任何第三方。</p>
+          <div class="row">
+            <button id="btn-invite" class="primary">生成邀请二维码</button>
+            <button id="btn-scan" class="ghost">扫描二维码</button>
+            <button id="btn-reconnect" class="ghost hidden">重新连接</button>
+          </div>
+
+          <div id="scan-box" class="scan hidden">
+            <video id="scan-video" playsinline muted></video>
+            <button id="btn-stop-scan" class="ghost small">停止扫描</button>
+          </div>
+
+          <div id="pair-step" class="hidden">
+            <h3 id="pair-step-title">你的邀请二维码</h3>
+            <div id="qr" class="qr"></div>
+            <p id="pair-hint" class="muted"></p>
+            <textarea id="code-out" class="code" rows="3" readonly></textarea>
+          </div>
+
+          <div class="paste">
+            <h3>粘贴对方的码</h3>
+            <p class="muted">没有摄像头、或用另一台设备时，把对方的码贴进来即可。</p>
+            <textarea id="code-in" class="code" rows="3" placeholder="把对方给的码粘贴在这里"></textarea>
+            <button id="btn-accept-code" class="primary">处理这个码</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-chat" class="panel">
+        <div class="chathead">
+          <div>
+            <div class="muted small">对端指纹</div>
+            <code id="peer-fp" class="fp">（未绑定）</code>
+          </div>
+          <button id="btn-unbind" class="ghost small" disabled title="任何一方都可以直接解除，不需要对方同意">解除关系</button>
+        </div>
+
+        <div id="unbind-ask" class="ask hidden">
+          <p id="unbind-ask-text">确认解除关系？对方会被立即断开，双方本机历史都会被删除。</p>
+          <div class="row">
+            <button id="btn-unbind-yes" class="danger">确认解除</button>
+            <button id="btn-unbind-no" class="ghost">取消</button>
+          </div>
+        </div>
+
+        <div id="messages" class="messages"></div>
+
+        <div id="dev-row" class="dev-row hidden">
+          <span class="dev-tag">自测（地址带 #dev 才出现）</span>
+          <button id="dev-img" class="ghost small">发一张生成的图</button>
+          <button id="dev-big" class="ghost small">发 1.2 MB 测试文件</button>
+          <button id="dev-voice" class="ghost small">发一段合成语音</button>
+          <button id="dev-seen" class="ghost small">模拟"对方已读"</button>
+          <button id="dev-get-offer" class="ghost small">取对方 offer 码</button>
+          <button id="dev-get-answer" class="ghost small">取对方 answer 码</button>
+        </div>
+        <div id="rec-bar" class="rec-bar hidden">
+          <span class="rec-dot"></span>
+          <span id="rec-time" class="rec-time">0:00</span>
+          <span class="rec-hint">正在录音…</span>
+          <button id="btn-rec-cancel" class="ghost small">取消</button>
+          <button id="btn-rec-send" class="primary small">发送语音</button>
+        </div>
+        <div class="composer">
+          <button id="btn-mic" class="ghost attach" title="按住说语音（点一下开始、再点结束）" disabled>🎤</button>
+          <button id="btn-attach" class="ghost attach" title="发图片 / 视频 / 文件（也可以直接粘贴或拖进来）" disabled>＋</button>
+          <input id="file-input" type="file" multiple hidden />
+          <textarea id="chat-input" rows="2" placeholder="说点什么…（Enter 发送，Shift+Enter 换行；可以直接粘贴图片或拖文件进来）" disabled></textarea>
+          <button id="btn-send" class="primary">发送</button>
+        </div>
+      </section>
+
+      <section id="panel-about" class="panel hidden">
+        <div class="card">
+          <h2>它是什么</h2>
+          <p>一个只属于两个人的点对点聊天：没有服务器、没有账号、没有云端。</p>
+          <ul>
+            <li><strong>零服务器</strong>：两条二维码完成握手（offer/answer 直接编码进二维码），之后浏览器之间直连。</li>
+            <li><strong>一对一锁定</strong>：绑定后本机拒绝任何新的配对请求。</li>
+            <li><strong>解除是单方的</strong>：任何一方点「解除关系」并确认即生效，对方立刻断开并清空这段关系与历史。</li>
+            <li><strong>可以发图片 / 视频 / 文件</strong>：分块传输，每块单独加密，边传边解，单文件上限 300 MB。</li>
+            <li><strong>数据只在本地</strong>：消息与附件写入本机 IndexedDB，且写入前已用会话密钥加密。</li>
+            <li><strong>端到端加密</strong>：ECDH(P-256) → HKDF-SHA256 → AES-256-GCM。</li>
+            <li><strong>可以发语音消息</strong>：录完当附件走同一条加密通道，收方看到可播放的音频条。</li>
+            <li><strong>已读回执是双签的</strong>：双方都开启才生效，只标在最新一条消息上；任一方关掉即时失效。</li>
+            <li><strong>有桌面通知，也有免打扰</strong>：页面在后台时提醒，免打扰只是压通知，不拦消息。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>偏好（各自设置，互不强制）</h2>
+          <label class="opt">
+            <input type="checkbox" id="opt-read" />
+            <span class="opt-name">已读回执</span>
+            <em class="muted small">需要双方都开启才生效；只显示在最新一条消息上</em>
+          </label>
+          <label class="opt">
+            <input type="checkbox" id="opt-notify" checked />
+            <span class="opt-name">桌面通知</span>
+            <em class="muted small">页面在后台时提醒新消息（首次勾选会请求系统通知权限）</em>
+          </label>
+          <label class="opt">
+            <input type="checkbox" id="opt-dnd" />
+            <span class="opt-name">免打扰</span>
+            <em class="muted small">只压通知，不影响消息收取；是本机个人开关</em>
+          </label>
+          <p id="opt-status" class="muted small">已读回执：双方都未开启</p>
+          <p id="opt-peer" class="muted small">对方：未知</p>
+          <p id="opt-perm" class="muted small">通知权限：未知</p>
+        </div>
+
+        <div class="card">
+          <h2>边界</h2>
+          <ul>
+            <li>默认不带 STUN/TURN：同一局域网或可直连时最稳；跨公网 NAT 需要自己加 STUN（见 docs/PROTOCOL.md）。</li>
+            <li>浏览器清数据 = 历史与身份一起没了（这是"只存在你设备里"的代价）。</li>
+            <li>它能防的是"服务器留存"和"随手被翻看"；不防"对方截图"。任何客户端都可被改造，安全模型见 docs/ARCHITECTURE.md。</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <script src="vendor/qrcode.js"></script>
+    <script src="vendor/jsQR.js"></script>
+    <script type="module" src="js/ui.js"></script>
+  </body>
+</html>

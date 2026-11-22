@@ -1,0 +1,12 @@
+{
+  "name": "couple-chat",
+  "version": "1.5.0",
+  "private": true,
+  "type": "module",
+  "description": "点对点情侣聊天：二维码配对、一对一锁定、双方同意才能解除、数据只存本机",
+  "scripts": {
+    "start": "node serve.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT"
+}

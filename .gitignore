@@ -1,0 +1,21 @@
+# 依赖与生成物
+node_modules/
+app/dev/
+
+# 桌面版构建产物
+desktop/dist/
+desktop/Assets.cs
+desktop/_pkgtest*/
+desktop/build/
+
+# 安卓版构建产物与工具链（.sdk 是本地下载的 build-tools/platform，~231 MB）
+android/.sdk/
+android/build/
+android/dist/
+android/assets/www/
+android/couplechat-release.keystore
+
+# 杂项
+*.log
+.DS_Store
+Thumbs.db

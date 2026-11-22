@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 21–25 用的图标（26+ 走 mipmap-anydpi-v26 的自适应图标） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#1E2A3A"
+        android:pathData="M0,0 h108 v108 h-108 z" />
+    <path android:fillColor="#5B9CFF"
+        android:pathData="M26,32 h30 a10,10 0 0 1 10,10 v14 a10,10 0 0 1 -10,10 h-16 l-10,8 v-8 h-4 a10,10 0 0 1 -10,-10 v-14 a10,10 0 0 1 10,-10 z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M60,50 h18 a8,8 0 0 1 8,8 v10 a8,8 0 0 1 -8,8 h-2 v6 l-8,-6 h-8 a8,8 0 0 1 -8,-8 v-10 a8,8 0 0 1 8,-8 z" />
+</vector>
