@@ -33,6 +33,9 @@ const app = {
   mineRows: [],                   // 我发出的消息气泡：{ts, el}，用于给最新一条贴"已读"
   lastTheirsTs: 0,                // 对方最后一条消息的时间戳
   seenTimer: null,
+  hbTimer: null,                  // 心跳定时器：10s 一次 ping，30s 收不到 pong 判定链路已死
+  lastPong: 0,
+  outbox: [],                     // 断链时排队的文本消息，重连成功后自动补发
 };
 
 /* ---------------- 身份 ---------------- */
@@ -72,6 +75,7 @@ function showTab(name) {
     $('tab-' + t).classList.toggle('active', t === name);
     $('panel-' + t).classList.toggle('hidden', t !== name);
   }
+  if (name === 'about' && typeof renderKeepAlive === 'function') renderKeepAlive();
 }
 
 function hidePairStep() {
@@ -199,7 +203,8 @@ async function onLinkState(state) {
       app.quietClose = false;
       return;
     }
-    setStatus('连接已断开。可点"重新连接"。', 'warn');
+    stopHeartbeat();
+    setStatus('直连断开了（换网、息屏、对方关页面都会断）。点"重新连接"生成新邀请，让对方用"粘贴对方的码"接上。', 'warn');
     $('btn-reconnect').classList.remove('hidden');
   }
 }
@@ -226,7 +231,12 @@ async function finalizeBinding() {
   setStatus('直连已建立 · 端到端加密', 'ok');
   $('btn-reconnect').classList.add('hidden');
   sendPrefs();                 // 先把本机开关推过去，双方状态立刻一致
+  if (!R.readOn(app.prefs, app.peerPrefs)) {
+    setStatus('直连已建立 · 端到端加密（已读回执未开启：双方都在"说明"里打开才生效）', 'ok');
+  }
   await renderHistory();
+  startHeartbeat();
+  await flushOutbox();
   sendSeenSoon();
   if (!app.binding.peer.messagesShown) app.binding.peer.messagesShown = true;
 }
@@ -250,9 +260,65 @@ async function savePrefs() {
   sendSeenSoon();               // 刚开启已读：把当前看到的位置立刻报过去
 }
 
-function sendPrefs() {
-  if (!app.link || !app.link.open) return;
-  app.link.send({ t: 'pref', read: !!app.prefs.read, dnd: !!app.prefs.dnd, notify: app.prefs.notify !== false });
+function sendPrefs(poke) {
+  if (!app.link || !app.link.open) return false;
+  return app.link.send({ t: 'pref', read: !!app.prefs.read, dnd: !!app.prefs.dnd,
+                         notify: app.prefs.notify !== false, poke: !!poke });
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+  app.lastPong = Date.now();
+  app.hbTimer = setInterval(() => {
+    if (!app.link || !app.link.open) return;
+    app.link.send({ t: 'ping', ts: Date.now() });
+    if (Date.now() - app.lastPong > 30000) {
+      stopHeartbeat();
+      setStatus('直连已经没有回应了（换网或息屏造成的静默断开）。点"重新连接"生成新邀请。', 'warn');
+      $('btn-reconnect').classList.remove('hidden');
+    }
+  }, 10000);
+}
+
+function stopHeartbeat() {
+  if (app.hbTimer) { clearInterval(app.hbTimer); app.hbTimer = null; }
+}
+
+async function flushOutbox() {
+  if (!app.outbox.length || !app.link || !app.link.open) return;
+  const queued = app.outbox.splice(0, app.outbox.length);
+  let sent = 0;
+  for (const m of queued) {
+    if (!app.link.send({ t: 'msg', id: m.id, ts: m.ts, body: m.body })) {
+      app.outbox.unshift(m);       // 又断了：放回去，别丢
+      break;
+    }
+    sent++;
+  }
+  if (sent) setStatus('已补发 ' + sent + ' 条待发消息。', 'ok');
+}
+
+function nativeBridge() {
+  return (typeof window !== 'undefined' && window.Native) ? window.Native : null;
+}
+
+function renderKeepAlive() {
+  const el = $('ka-status');
+  if (!el) return;
+  const b = nativeBridge();
+  if (!b) {
+    el.textContent = '不适用：电脑/浏览器端不会被系统冻结标签页，直连靠浏览器自己维持。';
+    $('btn-ka-on').classList.add('hidden');
+    $('btn-ka-off').classList.add('hidden');
+    $('btn-ka-battery').classList.add('hidden');
+    return;
+  }
+  let st = {};
+  try { st = JSON.parse(b.status() || '{}'); } catch { st = {}; }
+  el.textContent =
+    '前台保活服务：' + (st.service ? '运行中' : '已停止')
+    + ' · 电池白名单：' + (st.ignoringBattery ? '已允许（不会被 Doze 掐）' : '未允许（深睡时会断）')
+    + (st.doze ? ' · 当前处于 Doze 深睡' : '');
 }
 
 function receiptsOn() {
@@ -300,6 +366,7 @@ function renderOpts() {
   $('opt-notify').checked = app.prefs.notify !== false;
   $('opt-status').textContent = R.receiptStatusText(app.prefs, app.peerPrefs);
   const p = app.peerPrefs;
+  $('btn-poke-read').classList.toggle('hidden', !(app.prefs.read && p && !p.read && app.link && app.link.open));
   $('opt-peer').textContent = p
     ? '对方：已读回执' + (p.read ? '开' : '关') + ' · 免打扰' + (p.dnd ? '开' : '关')
     : '对方：当前读不到（没连上或还没同步）';
@@ -343,7 +410,13 @@ async function sendMessage() {
   };
   const ok = app.link && app.link.send({ t: 'msg', id: msg.id, ts: msg.ts, body: msg.body });
   if (!ok) {
-    setStatus('发送失败：连接不在。点"重新连接"。', 'bad');
+    // 断链时不丢消息：落库 + 进发件箱，重连成功后自动补发
+    input.value = '';
+    await persistMessage(msg);
+    appendBubble(msg, textToSend);
+    app.outbox.push({ id: msg.id, ts: msg.ts, body: msg.body });
+    setStatus('连接不在：这条已存进"待发"。点"重新连接"生成邀请，接上后自动补发。', 'warn');
+    $('btn-reconnect').classList.remove('hidden');
     return;
   }
   input.value = '';
@@ -384,7 +457,7 @@ function appendBubble(msg, text) {
   wrap.className = 'bubble ' + (msg.from === 'me' ? 'mine' : 'theirs');
   const p = document.createElement('div');
   p.className = 'text';
-  p.textContent = text;
+  p.textContent = (typeof text === 'string' && text.length) ? text : '（这条消息内容为空）';
   const rc = document.createElement('div');
   rc.className = 'receipt hidden';
   const time = document.createElement('div');
@@ -790,6 +863,11 @@ async function onFrame(frame) {
     } catch {
       log('解密失败', frame.id);
     }
+  } else if (frame.t === 'ping') {
+    app.lastPong = Date.now();
+    if (app.link && app.link.open) app.link.send({ t: 'pong', ts: frame.ts });
+  } else if (frame.t === 'pong') {
+    app.lastPong = Date.now();
   } else if (frame.t === 'seen') {
     // 对方已读到我这条消息（水位只增不减）
     app.peerSeenTs = R.bumpSeen(app.peerSeenTs, frame.ts);
@@ -802,6 +880,10 @@ async function onFrame(frame) {
     renderOpts();
     refreshReceipts();
     sendSeenSoon();
+    if (frame.poke && !app.prefs.read) {
+      setStatus('对方希望你开启已读回执 —— 在"说明"里勾上"已读回执"就会生效。', 'warn');
+      showTab('about');
+    }
   } else if (frame.t === 'unbind-request') {
     await peerUnbound();
   } else if (frame.t === 'unbind-accept' || frame.t === 'unbind-refuse' || frame.t === 'unbind-confirm') {
@@ -1069,6 +1151,24 @@ function wire() {
       sendMessage();
     }
   });
+  for (const id of ['btn-ka-on', 'btn-ka-off', 'btn-ka-battery']) {
+    const el = $(id);
+    if (el) el.addEventListener('click', () => {
+      const b = nativeBridge();
+      if (!b) return;
+      if (id === 'btn-ka-on') b.keepAlive(true);
+      if (id === 'btn-ka-off') b.keepAlive(false);
+      if (id === 'btn-ka-battery') {
+        const ok = b.requestBatteryExemption();
+        setStatus(ok ? '已打开系统授权框：选「允许」才会免疫 Doze。' : '打不开系统设置，请手动到"应用信息 → 电池 → 不限制"。', ok ? 'ok' : 'warn');
+      }
+      setTimeout(renderKeepAlive, 400);
+    });
+  }
+  $('btn-poke-read').addEventListener('click', () => {
+    if (sendPrefs(true)) setStatus('已提醒对方开启已读回执（等对方勾上就生效）。', 'ok');
+    else setStatus('现在没有直连，提醒发不出去。', 'bad');
+  });
   $('opt-read').addEventListener('change', async (e) => {
     app.prefs.read = e.target.checked;
     await savePrefs();
@@ -1087,8 +1187,15 @@ function wire() {
     await savePrefs();
   });
   // 切回页面/窗口获得焦点：这时候才算"看到了"，补报一次已读
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') sendSeenSoon();
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    sendSeenSoon();
+    // 回到前台：已绑定但链路不在了 → 直接把重连邀请准备好
+    if (app.binding.isBound && !(app.link && app.link.open)) {
+      setStatus('回到前台：直连已断，正在生成重连邀请…', 'busy');
+      try { await startPairing({ reconnect: true }); showTab('pair'); }
+      catch (e) { setStatus('生成重连邀请失败：' + e.message, 'bad'); }
+    }
   });
   window.addEventListener('focus', () => sendSeenSoon());
   $('btn-unbind').addEventListener('click', requestUnbind);

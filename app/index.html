@@ -135,6 +135,20 @@
             <em class="muted small">只压通知，不影响消息收取；是本机个人开关</em>
           </label>
           <p id="opt-status" class="muted small">已读回执：双方都未开启</p>
+          <button id="btn-poke-read" class="ghost small hidden">提醒对方开启已读回执</button>
+        </div>
+        <div class="card">
+          <h2>后台保活（手机端）</h2>
+          <p class="muted small">切到后台、锁屏后，直连要靠「前台服务 + 电池白名单」才活得久。
+            电脑端不需要设置，这一栏会显示"不适用"。</p>
+          <p id="ka-status" class="muted small">检查中…</p>
+          <div class="row">
+            <button id="btn-ka-on" class="ghost small">开启保活</button>
+            <button id="btn-ka-off" class="ghost small">关闭保活</button>
+            <button id="btn-ka-battery" class="small">允许后台运行（电池白名单）</button>
+          </div>
+          <p class="muted small">Android 15 起 dataSync 前台服务有累计时长上限（约 6 小时/24 小时），到点系统会收走；
+            那时链路会断，回到前台会自动准备重连邀请。</p>
           <p id="opt-peer" class="muted small">对方：未知</p>
           <p id="opt-perm" class="muted small">通知权限：未知</p>
         </div>

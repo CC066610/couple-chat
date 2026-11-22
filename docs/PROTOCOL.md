@@ -68,7 +68,10 @@
 ### `pref` —— 我的开关
 
 ```json
-{ "t": "pref", "read": true, "dnd": false, "notify": true }
+{ "t": "pref", "read": true, "dnd": false, "notify": true, "poke": false }
+
+`poke`（v1.6 起，可选）：为 `true` 表示"我已经开了已读回执，希望你也开"。收到方若自己没开，
+页面会切到「说明」并提示一句；它只是提示，不改变任何开关，也不影响已读判定（仍然双签才生效）。
 ```
 
 - 每次勾选/取消都会立刻广播一次；绑定建立时（`finalizeBinding`）也会先发一次，保证两端状态一致。

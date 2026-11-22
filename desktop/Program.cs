@@ -68,7 +68,7 @@ namespace CoupleChat
             }
 
             string local = "http://127.0.0.1:" + port + "/";
-            Console.WriteLine("CoupleChat 1.5  ·  两个人的聊天（电脑版）");
+            Console.WriteLine("CoupleChat 1.8  ·  两个人的聊天（电脑版）");
             Console.WriteLine("纯本地运行：没有服务器、没有账号，聊天记录只保存在你自己的浏览器里。");
             Console.WriteLine();
             Console.WriteLine("  本机打开             " + local);
