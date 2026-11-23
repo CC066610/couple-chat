@@ -166,6 +166,16 @@ PORT=8124 node serve.mjs
 传输层新增两个帧（`seen` / `pref`），格式与语义见 `docs/PROTOCOL.md`「已读与偏好」。
 纯逻辑在 `app/js/receipts.js`（单测 `test/receipts.test.js`，9 条）。
 
+## 签名与备份（重要）
+
+安卓包的**升级资格**由签名证书决定：`android/couplechat-release.keystore` 的私钥一旦丢失，
+老用户只能卸载重装，而卸载会清掉身份与全部历史。这个文件**故意不进 git、不进 Release**。
+
+- 细节、指纹、备份/恢复命令：见 [`docs/KEYSTORE.md`](docs/KEYSTORE.md)
+- 加密备份工具：`tools/keystore-backup.py`（scrypt + AES-256-GCM，容器 `.ccks`）
+- 每次发版校验一条：`apksigner verify --print-certs android/dist/CoupleChat-<ver>.apk | findstr /i SHA-256`
+  必须等于 `5d05ce76c2764822d48554171dbe6442e0120452a4dc74d47cc8d508f8596991`
+
 ## 手机端（安卓 APK）
 
 浏览器里能跑，但手机上要"像 App 一样用"，有两个硬约束：
